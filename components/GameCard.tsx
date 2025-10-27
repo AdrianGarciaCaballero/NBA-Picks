@@ -16,27 +16,32 @@ interface GameCardProps {
 
 const GameCard: React.FC<GameCardProps> = ({ game, homeTeam, awayTeam, prediction, onDetailsClick }) => {
 
-    const getProbColor = (prob: number) => {
-        if (prob > 65) return 'bg-green-500';
-        if (prob > 55) return 'bg-yellow-500';
-        return 'bg-red-500';
-    };
-
     const winnerIsHome = prediction.winner.team.id === homeTeam.id;
 
+    const getStatusBadge = (status: string) => {
+        if (status === 'STATUS_IN_PROGRESS') {
+            return <span className="absolute top-3 right-3 text-xs bg-red-600 text-white font-bold px-2 py-0.5 rounded-full animate-pulse z-10">LIVE</span>;
+        }
+        if (status === 'STATUS_FINAL') {
+            return <span className="absolute top-3 right-3 text-xs bg-gray-600 text-white font-semibold px-2 py-0.5 rounded-full z-10">FINAL</span>;
+        }
+        return null;
+    }
+
     return (
-        <div className="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700 hover:border-blue-500 transition-all duration-300 flex flex-col justify-between">
+        <div className="relative bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700 hover:border-blue-500 transition-all duration-300 flex flex-col justify-between">
+            {getStatusBadge(game.status)}
             <div>
                 <p className="text-xs text-center text-gray-400 mb-2">{game.time}</p>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex flex-col items-center w-1/3 text-center">
-                        <span className="text-4xl">{awayTeam.logo}</span>
+                        <img src={awayTeam.logo} alt={awayTeam.name} className="h-10 w-10 mb-1"/>
                         <span className="font-bold text-sm mt-1">{awayTeam.name}</span>
                         <span className="text-xs text-gray-400">{awayTeam.record.wins}-{awayTeam.record.losses}</span>
                     </div>
                     <div className="text-2xl font-bold text-gray-500">@</div>
                     <div className="flex flex-col items-center w-1/3 text-center">
-                        <span className="text-4xl">{homeTeam.logo}</span>
+                        <img src={homeTeam.logo} alt={homeTeam.name} className="h-10 w-10 mb-1"/>
                         <span className="font-bold text-sm mt-1">{homeTeam.name}</span>
                         <span className="text-xs text-gray-400">{homeTeam.record.wins}-{homeTeam.record.losses}</span>
                     </div>
@@ -46,14 +51,18 @@ const GameCard: React.FC<GameCardProps> = ({ game, homeTeam, awayTeam, predictio
                     <div className="text-center">
                         <span className="text-xs font-semibold text-gray-300">WIN PROBABILITY</span>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className={`font-bold text-sm ${!winnerIsHome ? 'text-blue-400' : 'text-gray-500'}`}>{prediction.winner.team.id === awayTeam.id ? prediction.winner.probability.toFixed(1) : (100 - prediction.winner.probability).toFixed(1)}%</span>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
+                            <span className={`font-bold text-sm w-12 text-center ${!winnerIsHome ? 'text-blue-400' : 'text-gray-500'}`}>{!winnerIsHome ? prediction.winner.probability.toFixed(1) : (100 - prediction.winner.probability).toFixed(1)}%</span>
+                            <div className="flex-1 bg-gray-700 rounded-full h-3 overflow-hidden">
                                 <div
-                                    className={`h-3 rounded-full transition-all duration-500 ${winnerIsHome ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-blue-500 to-purple-500`}
-                                    style={{ width: `${winnerIsHome ? prediction.winner.probability : 100 - prediction.winner.probability}%`, marginLeft: `${winnerIsHome ? `${100-prediction.winner.probability}%` : `0`}` }}
+                                    className="h-3 rounded-r-full float-right transition-all duration-500 bg-gradient-to-l from-blue-500 to-purple-500"
+                                    style={{ width: `${winnerIsHome ? prediction.winner.probability : 0}%` }}
+                                ></div>
+                                <div
+                                    className="h-3 rounded-l-full float-left transition-all duration-500 bg-gradient-to-r from-gray-600 to-gray-500"
+                                    style={{ width: `${!winnerIsHome ? 100-prediction.winner.probability : 0}%` }}
                                 ></div>
                             </div>
-                            <span className={`font-bold text-sm ${winnerIsHome ? 'text-blue-400' : 'text-gray-500'}`}>{prediction.winner.team.id === homeTeam.id ? prediction.winner.probability.toFixed(1) : (100-prediction.winner.probability).toFixed(1)}%</span>
+                            <span className={`font-bold text-sm w-12 text-center ${winnerIsHome ? 'text-blue-400' : 'text-gray-500'}`}>{winnerIsHome ? prediction.winner.probability.toFixed(1) : (100 - prediction.winner.probability).toFixed(1)}%</span>
                         </div>
                     </div>
                     

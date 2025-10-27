@@ -1,18 +1,15 @@
 
-import React, { useState, useMemo } from 'react';
-import { games as mockGames } from '../data/mockData';
-import { teams as allTeams } from '../data/mockData';
-import { analyzeGame } from '../services/predictionService';
+import React, { useState } from 'react';
 import { Prediction } from '../types';
 import GameCard from './GameCard';
 import GameDetailModal from './GameDetailModal';
 
-const GameList: React.FC = () => {
-    const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
+interface GameListProps {
+    predictions: Prediction[];
+}
 
-    const predictions = useMemo(() => {
-        return mockGames.map(game => analyzeGame(game)).filter(p => p !== null) as Prediction[];
-    }, []);
+const GameList: React.FC<GameListProps> = ({ predictions }) => {
+    const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
 
     const handleDetailsClick = (prediction: Prediction) => {
         setSelectedPrediction(prediction);

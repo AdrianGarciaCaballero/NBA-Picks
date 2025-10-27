@@ -1,12 +1,11 @@
 
-import React, { useMemo, useState } from 'react';
-import { games as mockGames } from '../data/mockData';
-import { analyzeGame } from '../services/predictionService';
+import React, { useMemo } from 'react';
 import { Prediction, PickType } from '../types';
 import { TrendingUp, Star, Layers } from 'lucide-react';
 
 interface DashboardProps {
   setActiveTab: (tab: 'games' | 'calculator') => void;
+  predictions: Prediction[];
 }
 
 const PickCard: React.FC<{ prediction: Prediction; type: PickType }> = ({ prediction, type }) => {
@@ -56,10 +55,7 @@ const PickCard: React.FC<{ prediction: Prediction; type: PickType }> = ({ predic
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
-    const predictions = useMemo(() => {
-        return mockGames.map(game => analyzeGame(game)).filter(p => p !== null) as Prediction[];
-    }, []);
+const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, predictions }) => {
 
     const topMoneyline = useMemo(() => [...predictions].sort((a, b) => b.winner.probability - a.winner.probability), [predictions]);
     const topValue = useMemo(() => [...predictions].filter(p => p.winner.value > 2).sort((a, b) => b.winner.value - a.winner.value), [predictions]);

@@ -1,16 +1,10 @@
 
 import { Team, Game, Prediction } from '../types';
-import { teams as allTeams } from '../data/mockData';
 
 const WEIGHTS = {
-    RECORD: 0.20,
-    FORM: 0.30,
-    STATS: 0.25,
-    LOCATION: 0.15,
-    H2H: 0.10,
+    RECORD: 0.70, // Win % is the most reliable stat we have from the API
+    LOCATION: 0.30, // Static home court advantage
 };
-
-const getTeamById = (id: string): Team | undefined => allTeams.find(t => t.id === id);
 
 export const americanToDecimal = (odds: number): number => {
     if (odds >= 100) {
@@ -27,33 +21,18 @@ export const getImpliedProbability = (americanOdds: number): number => {
     return decimalToImpliedProbability(americanToDecimal(americanOdds));
 };
 
-const calculateScore = (team: Team, opponent: Team, isHome: boolean, h2hWins: number): number => {
-    // 1. Record Score (0-100)
-    const recordScore = (team.record.wins / (team.record.wins + team.record.losses)) * 100;
+const calculateScore = (team: Team, isHome: boolean): number => {
+    // 1. Record Score (0-100) based on win percentage
+    const totalGames = team.record.wins + team.record.losses;
+    const recordScore = totalGames > 0 ? (team.record.wins / totalGames) * 100 : 50; // Default to 50 if no games played (early season)
 
-    // 2. Form Score (0-100)
-    const formScore = (team.form.filter(r => r === 'W').length / team.form.length) * 100;
-
-    // 3. Stats Score (normalized net rating)
-    const teamNetRating = team.stats.ppg - team.stats.oppg;
-    const opponentNetRating = opponent.stats.ppg - opponent.stats.oppg;
-    // A score of 50 is neutral. Can range from ~0-100.
-    const statsScore = 50 + (teamNetRating - opponentNetRating) * 2.5;
-
-    // 4. Location Score (0-100)
-    const locationRecord = isHome ? team.homeRecord : team.awayRecord;
-    const locationScore = (locationRecord.wins / (locationRecord.wins + locationRecord.losses)) * 100;
-
-    // 5. H2H Score (0-100)
-    const h2hScore = (h2hWins / 10) * 100; // Assuming last 10 games
+    // 2. Location Score (0-100) - Simple static bonus for home team
+    const locationScore = isHome ? 65 : 35;
 
     // Weighted average
     const totalScore = 
         (recordScore * WEIGHTS.RECORD) +
-        (formScore * WEIGHTS.FORM) +
-        (statsScore * WEIGHTS.STATS) +
-        (locationScore * WEIGHTS.LOCATION) +
-        (h2hScore * WEIGHTS.H2H);
+        (locationScore * WEIGHTS.LOCATION);
         
     return totalScore;
 };
@@ -64,14 +43,11 @@ const getConfidence = (probability: number): 'Low' | 'Medium' | 'High' => {
     return 'Low';
 };
 
-export const analyzeGame = (game: Game): Prediction | null => {
-    const homeTeam = getTeamById(game.homeTeamId);
-    const awayTeam = getTeamById(game.awayTeamId);
-
+export const analyzeGame = (game: Game, homeTeam: Team, awayTeam: Team): Prediction | null => {
     if (!homeTeam || !awayTeam) return null;
 
-    const homeScore = calculateScore(homeTeam, awayTeam, true, game.h2h[0]);
-    const awayScore = calculateScore(awayTeam, homeTeam, false, game.h2h[1]);
+    const homeScore = calculateScore(homeTeam, true);
+    const awayScore = calculateScore(awayTeam, false);
 
     const totalScore = homeScore + awayScore;
     const homeWinProbability = (homeScore / totalScore) * 100;
@@ -83,19 +59,22 @@ export const analyzeGame = (game: Game): Prediction | null => {
     const impliedProbability = getImpliedProbability(winnerOdds);
     const value = winnerProbability - impliedProbability;
 
-    // Simplified Spread & Total Logic
-    const predictedPointDifference = (homeTeam.stats.ppg - homeTeam.stats.oppg) - (awayTeam.stats.ppg - awayTeam.stats.oppg);
-    const spreadPick = predictedPointDifference > -game.odds.spread.line ? `${homeTeam.id} ${game.odds.spread.line > 0 ? '+':''}${game.odds.spread.line}` : `${awayTeam.id} ${-game.odds.spread.line > 0 ? '+':''}${-game.odds.spread.line}`;
+    // Simplified Spread & Total Logic based on available data
+    const homeWinPct = homeTeam.record.wins / (homeTeam.record.wins + homeTeam.record.losses || 1);
+    const awayWinPct = awayTeam.record.wins / (awayTeam.record.wins + awayTeam.record.losses || 1);
+    // Heuristic: map win % difference to point spread. e.g., 10% diff = ~4 points
+    const predictedPointDifference = (homeWinPct - awayWinPct) * 40; 
     
-    // Spread probability based on how much the prediction exceeds the line
+    const spreadPickValue = game.odds.spread.line > 0 ? `+${game.odds.spread.line}` : `${game.odds.spread.line}`;
+    const awaySpreadPickValue = -game.odds.spread.line > 0 ? `+${-game.odds.spread.line}` : `${-game.odds.spread.line}`;
+    const spreadPick = predictedPointDifference > -game.odds.spread.line ? `${homeTeam.id} ${spreadPickValue}` : `${awayTeam.id} ${awaySpreadPickValue}`;
+    
     const spreadMargin = Math.abs(predictedPointDifference - (-game.odds.spread.line));
-    const spreadProbability = 50 + spreadMargin * 2.5; // Simple heuristic
+    const spreadProbability = 50 + spreadMargin * 1.5; // Adjusted heuristic multiplier
 
-    const predictedTotal = (homeTeam.stats.ppg + awayTeam.stats.ppg) / 2 + (homeTeam.stats.oppg + awayTeam.stats.oppg) / 2;
-    const totalPick = predictedTotal > game.odds.total.line ? 'Over' : 'Under';
-    
-    const totalMargin = Math.abs(predictedTotal - game.odds.total.line);
-    const totalProbability = 50 + totalMargin * 2.0;
+    // Total prediction is hard without PPG stats. We'll base it weakly on the odds provided.
+    const totalPick = game.odds.total.over < game.odds.total.under ? 'Over' : 'Under';
+    const totalProbability = 51.5; // Barely an edge, reflecting low confidence in this pick.
 
     return {
         game,
@@ -118,7 +97,7 @@ export const analyzeGame = (game: Game): Prediction | null => {
             pick: totalPick,
             line: game.odds.total.line,
             probability: totalProbability,
-            confidence: getConfidence(totalProbability),
+            confidence: 'Low',
             value: totalProbability - getImpliedProbability(game.odds.total.over),
         }
     };

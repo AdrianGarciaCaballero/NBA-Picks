@@ -4,13 +4,6 @@ export interface Team {
     name: string;
     logo: string;
     record: { wins: number; losses: number };
-    stats: {
-        ppg: number; // Points per game
-        oppg: number; // Opponent points per game
-    };
-    form: ('W' | 'L')[]; // Last 5 games
-    homeRecord: { wins: number; losses: number };
-    awayRecord: { wins: number; losses: number };
 }
 
 export interface Game {
@@ -18,12 +11,13 @@ export interface Game {
     homeTeamId: string;
     awayTeamId: string;
     time: string;
+    status: 'STATUS_SCHEDULED' | 'STATUS_IN_PROGRESS' | 'STATUS_FINAL' | string;
     odds: {
         moneyline: { home: number; away: number };
         spread: { line: number; home: number; away: number };
         total: { line: number; over: number; under: number };
     };
-    h2h: [number, number]; // [homeTeamWins, awayTeamWins] in last 10 games
+    h2h: [number, number]; // Note: This is defaulted to neutral as it's not in the live API
 }
 
 export interface Prediction {
@@ -38,7 +32,7 @@ export interface Prediction {
         confidence: 'Low' | 'Medium' | 'High';
     };
     spread: {
-        pick: string; // e.g. 'Lakers -5.5'
+        pick: string; 
         probability: number;
         confidence: 'Low' | 'Medium' | 'High';
         value: number;

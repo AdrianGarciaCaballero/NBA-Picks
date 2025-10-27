@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Prediction, Team } from '../types';
 import ProgressBar from './common/ProgressBar';
@@ -28,8 +27,9 @@ const ConfidenceBadge: React.FC<{ confidence: 'Low' | 'Medium' | 'High' }> = ({ 
 
 const GameDetailModal: React.FC<GameDetailModalProps> = ({ prediction, onClose }) => {
     const { game, homeTeam, awayTeam } = prediction;
-    const homeNetRating = (homeTeam.stats.ppg - homeTeam.stats.oppg).toFixed(1);
-    const awayNetRating = (awayTeam.stats.ppg - awayTeam.stats.oppg).toFixed(1);
+    // FIX: The `stats` property does not exist on the Team type. The API does not provide this data.
+    // const homeNetRating = (homeTeam.stats.ppg - homeTeam.stats.oppg).toFixed(1);
+    // const awayNetRating = (awayTeam.stats.ppg - awayTeam.stats.oppg).toFixed(1);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -87,11 +87,6 @@ const GameDetailModal: React.FC<GameDetailModalProps> = ({ prediction, onClose }
                         <h3 className="text-lg font-semibold mb-2">Statistical Comparison</h3>
                         <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
                             <StatRow label="Record" awayValue={`${awayTeam.record.wins}-${awayTeam.record.losses}`} homeValue={`${homeTeam.record.wins}-${homeTeam.record.losses}`} />
-                            <StatRow label="Points Per Game" awayValue={awayTeam.stats.ppg} homeValue={homeTeam.stats.ppg} highlight={awayTeam.stats.ppg > homeTeam.stats.ppg ? 'away' : 'home'} />
-                            <StatRow label="Opp. Points Per Game" awayValue={awayTeam.stats.oppg} homeValue={homeTeam.stats.oppg} highlight={awayTeam.stats.oppg < homeTeam.stats.oppg ? 'away' : 'home'} />
-                            <StatRow label="Net Rating" awayValue={awayNetRating} homeValue={homeNetRating} highlight={+awayNetRating > +homeNetRating ? 'away' : 'home'} />
-                            <StatRow label="Form (Last 5)" awayValue={awayTeam.form.filter(f=>f==='W').length + 'W - ' + awayTeam.form.filter(f=>f==='L').length + 'L'} homeValue={homeTeam.form.filter(f=>f==='W').length + 'W - ' + homeTeam.form.filter(f=>f==='L').length + 'L'} highlight={awayTeam.form.filter(f=>f==='W').length > homeTeam.form.filter(f=>f==='W').length ? 'away' : 'home'} />
-                            <StatRow label="H2H (Last 10)" awayValue={game.h2h[1]} homeValue={game.h2h[0]} highlight={game.h2h[1] > game.h2h[0] ? 'away' : 'home'} />
                         </div>
                     </div>
                 </div>
@@ -101,4 +96,3 @@ const GameDetailModal: React.FC<GameDetailModalProps> = ({ prediction, onClose }
 };
 
 export default GameDetailModal;
-
