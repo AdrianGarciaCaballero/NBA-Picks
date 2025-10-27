@@ -1,7 +1,17 @@
 import { Game, Team } from '../types';
+import { MOCK_TEAMS } from '../data/mockData';
 
-// CORS Proxy to bypass browser restrictions on client-side requests.
-const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+// We'll try multiple CORS proxies to improve reliability.
+const PROXIES = [
+    {
+        name: 'AllOrigins',
+        buildUrl: (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    },
+    {
+        name: 'ThingProxy',
+        buildUrl: (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`
+    }
+];
 
 // Interface for the transformed data that includes teams directly
 export interface LiveGameData {
@@ -86,42 +96,56 @@ const transformESPNData = (events: any[]): LiveGameData[] => {
 }
 
 /**
- * Fetches today's NBA games from the ESPN Scoreboard API via a CORS proxy.
+ * Fetches today's NBA games from the ESPN Scoreboard API.
+ * It tries multiple CORS proxies for better reliability and includes a timeout.
  */
 export const fetchTodaysGames = async (): Promise<LiveGameData[]> => {
     const apiUrl = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
-    const requestUrl = `${PROXY_URL}${encodeURIComponent(apiUrl)}`;
+    let lastError: Error | null = null;
 
-    const response = await fetch(requestUrl);
-    if (!response.ok) {
-        throw new Error('Failed to fetch game data from ESPN API. The service may be temporarily unavailable or blocked by CORS.');
+    for (const proxy of PROXIES) {
+        const requestUrl = proxy.buildUrl(apiUrl);
+        try {
+            // Use AbortController for a fetch timeout (e.g., 8 seconds)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            const response = await fetch(requestUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+            
+            const text = await response.text();
+            // Check for common proxy error messages in the response body
+            if (text.includes("CORS-Anywhere") || text.includes("host has been blocked")) {
+                 throw new Error(`Proxy returned an error page.`);
+            }
+
+            try {
+                const data = JSON.parse(text);
+                return transformESPNData(data.events || []);
+            } catch (e) {
+                 // Don't throw here, let it fall through to the outer catch and try the next proxy
+                 throw new Error('Received invalid data format from the API.');
+            }
+        } catch (error: any) {
+            console.warn(`Fetch attempt via ${proxy.name} failed:`, error.message);
+            lastError = error;
+        }
     }
-    const data = await response.json();
-    return transformESPNData(data.events || []);
+
+    // If all proxies failed, throw a final, more informative error.
+    throw new Error('Failed to fetch game data. This could be a network issue or the data provider might be temporarily down.');
 };
 
 /**
- * Fetches a list of all NBA teams for use in the calculator via a CORS proxy.
- * Uses the balldontlie.io API as it provides a simple, key-less endpoint for all teams.
+ * Fetches a list of all NBA teams for use in the calculator.
+ * The list of teams is static, so we use reliable local data to prevent network failures.
  */
 export const fetchAllTeams = async (): Promise<Team[]> => {
-    const apiUrl = 'https://www.balldontlie.io/api/v1/teams';
-    const requestUrl = `${PROXY_URL}${encodeURIComponent(apiUrl)}`;
-    
-    const response = await fetch(requestUrl);
-     if (!response.ok) {
-        // Return a default list if this secondary API fails, so the calculator still works
-        console.error('Failed to fetch team list from balldontlie API. Using a default list.');
-        return [];
-    }
-    const data = await response.json();
-    
-    // Transform the API response to our internal Team type
-    return data.data.map((team: any) => ({
-        id: team.abbreviation,
-        name: team.full_name,
-        // Use a reliable source for NBA team logos based on abbreviation
-        logo: `https://www.nba.com/stats/media/img/teams/logos/${team.abbreviation}_logo.svg`,
-        record: { wins: 0, losses: 0 } // Record is not relevant for the team list in the calculator
-    }));
+    // To ensure the calculator is always functional and to avoid errors from
+    // unreliable free APIs, we will directly use the local mock data.
+    return Promise.resolve(MOCK_TEAMS);
 };
