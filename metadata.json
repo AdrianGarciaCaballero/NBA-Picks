@@ -1,0 +1,5 @@
+{
+  "name": "NBA PickPulse Analytics",
+  "description": "An advanced web application for analyzing NBA game picks and predictions. It features a probability calculator, daily game selector with detailed stats, and a dashboard for the best value picks, all powered by a weighted statistical algorithm.",
+  "requestFramePermissions": []
+}
